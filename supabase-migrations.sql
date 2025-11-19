@@ -25,14 +25,18 @@ CREATE TABLE IF NOT EXISTS public.users (
 CREATE TABLE IF NOT EXISTS public.subscriptions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-  plan TEXT CHECK (plan IN ('starter', 'premium')) NOT NULL,
-  status TEXT CHECK (status IN ('trialing', 'active', 'canceled', 'past_due')) DEFAULT 'trialing',
+  plan_type TEXT CHECK (plan_type IN ('starter', 'premium')),
+  billing_period TEXT CHECK (billing_period IN ('monthly', 'yearly')),
+  status TEXT CHECK (status IN ('trialing', 'active', 'canceled', 'past_due', 'incomplete')) DEFAULT 'trialing',
   stripe_subscription_id TEXT UNIQUE,
   stripe_customer_id TEXT,
+  price_id TEXT,
+  trial_start TIMESTAMP WITH TIME ZONE,
   trial_end TIMESTAMP WITH TIME ZONE,
   current_period_start TIMESTAMP WITH TIME ZONE,
   current_period_end TIMESTAMP WITH TIME ZONE,
   cancel_at_period_end BOOLEAN DEFAULT false,
+  ended_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

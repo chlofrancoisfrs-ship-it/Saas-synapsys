@@ -17,6 +17,7 @@ export type Json =
 
 export interface User {
   id: string
+  email: string | null
   full_name: string | null
   language: 'fr' | 'en'
   onboarding_completed: boolean
@@ -26,6 +27,7 @@ export interface User {
 
 export interface UserInsert {
   id: string
+  email?: string | null
   full_name?: string | null
   language?: 'fr' | 'en'
   onboarding_completed?: boolean
@@ -35,6 +37,7 @@ export interface UserInsert {
 
 export interface UserUpdate {
   id?: string
+  email?: string | null
   full_name?: string | null
   language?: 'fr' | 'en'
   onboarding_completed?: boolean
@@ -47,34 +50,47 @@ export interface UserUpdate {
 // =====================================================
 
 export type SubscriptionPlan = 'starter' | 'premium'
-export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due'
+export type SubscriptionBillingPeriod = 'monthly' | 'yearly'
+export type SubscriptionStatus = 'trialing' | 'active' | 'canceled' | 'past_due' | 'incomplete'
 
 export interface Subscription {
   id: string
   user_id: string
-  plan: SubscriptionPlan
+  plan_type: SubscriptionPlan | null
+  billing_period: SubscriptionBillingPeriod | null
   status: SubscriptionStatus
   stripe_subscription_id: string | null
   stripe_customer_id: string | null
+  price_id: string | null
+  trial_start: string | null
   trial_end: string | null
   current_period_start: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
+  ended_at: string | null
   created_at: string
   updated_at: string
 }
 
+// Alias for convenience
+export type SubscriptionRow = Subscription
+export type UserRow = User
+
 export interface SubscriptionInsert {
   id?: string
   user_id: string
-  plan: SubscriptionPlan
+  plan_type?: SubscriptionPlan | null
+  billing_period?: SubscriptionBillingPeriod | null
   status?: SubscriptionStatus
   stripe_subscription_id?: string | null
   stripe_customer_id?: string | null
+  price_id?: string | null
+  trial_start?: string | null
   trial_end?: string | null
   current_period_start?: string | null
   current_period_end?: string | null
   cancel_at_period_end?: boolean
+  ended_at?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -82,14 +98,18 @@ export interface SubscriptionInsert {
 export interface SubscriptionUpdate {
   id?: string
   user_id?: string
-  plan?: SubscriptionPlan
+  plan_type?: SubscriptionPlan | null
+  billing_period?: SubscriptionBillingPeriod | null
   status?: SubscriptionStatus
   stripe_subscription_id?: string | null
   stripe_customer_id?: string | null
+  price_id?: string | null
+  trial_start?: string | null
   trial_end?: string | null
   current_period_start?: string | null
   current_period_end?: string | null
   cancel_at_period_end?: boolean
+  ended_at?: string | null
   created_at?: string
   updated_at?: string
 }
