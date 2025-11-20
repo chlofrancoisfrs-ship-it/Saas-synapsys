@@ -588,3 +588,119 @@ CREATE TRIGGER update_customer_avatars_updated_at
 -- =====================================================
 -- END OF SCHEMA
 -- =====================================================
+
+-- Analytics Aggregates Table
+CREATE TABLE IF NOT EXISTS analytics_aggregates (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL,
+  platform TEXT NOT NULL,
+  views INTEGER DEFAULT 0,
+  engagement INTEGER DEFAULT 0,
+  engagement_rate DECIMAL(5,2) DEFAULT 0,
+  calls_generated INTEGER DEFAULT 0,
+  revenue DECIMAL(10,2) DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, date, platform)
+);
+
+CREATE INDEX idx_analytics_aggregates_user_date ON analytics_aggregates(user_id, date DESC);
+CREATE INDEX idx_analytics_aggregates_platform ON analytics_aggregates(platform);
+
+-- Enable RLS
+ALTER TABLE analytics_aggregates ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for analytics_aggregates
+CREATE POLICY "Users can view their own analytics"
+  ON analytics_aggregates FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own analytics"
+  ON analytics_aggregates FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own analytics"
+  ON analytics_aggregates FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Scheduled Reports Table
+CREATE TABLE IF NOT EXISTS scheduled_reports (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'custom')),
+  time TIME NOT NULL,
+  day_of_week INTEGER CHECK (day_of_week BETWEEN 0 AND 6),
+  day_of_month INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
+  format TEXT[] NOT NULL,
+  content TEXT[] NOT NULL,
+  recipients TEXT[] NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  last_sent_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_scheduled_reports_user ON scheduled_reports(user_id);
+CREATE INDEX idx_scheduled_reports_active ON scheduled_reports(is_active) WHERE is_active = true;
+
+-- Enable RLS
+ALTER TABLE scheduled_reports ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for scheduled_reports
+CREATE POLICY "Users can view their own scheduled reports"
+  ON scheduled_reports FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own scheduled reports"
+  ON scheduled_reports FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own scheduled reports"
+  ON scheduled_reports FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own scheduled reports"
+  ON scheduled_reports FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Content Performance Table (for top content tracking)
+CREATE TABLE IF NOT EXISTS content_performance (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  platform TEXT NOT NULL,
+  content_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  url TEXT,
+  published_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  views INTEGER DEFAULT 0,
+  engagement INTEGER DEFAULT 0,
+  engagement_rate DECIMAL(5,2) DEFAULT 0,
+  calls_generated INTEGER DEFAULT 0,
+  revenue DECIMAL(10,2) DEFAULT 0,
+  roi DECIMAL(10,2) DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, platform, content_id)
+);
+
+CREATE INDEX idx_content_performance_user ON content_performance(user_id);
+CREATE INDEX idx_content_performance_platform ON content_performance(platform);
+CREATE INDEX idx_content_performance_roi ON content_performance(roi DESC);
+
+-- Enable RLS
+ALTER TABLE content_performance ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for content_performance
+CREATE POLICY "Users can view their own content performance"
+  ON content_performance FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own content performance"
+  ON content_performance FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own content performance"
+  ON content_performance FOR UPDATE
+  USING (auth.uid() = user_id);
+

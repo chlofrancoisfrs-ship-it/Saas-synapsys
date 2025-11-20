@@ -9,6 +9,10 @@ import KPICard from '@/components/analytics/KPICard'
 import RevenueChart from '@/components/analytics/RevenueChart'
 import PlatformCard from '@/components/analytics/PlatformCard'
 import TopContentTable from '@/components/analytics/TopContentTable'
+import FunnelChart from '@/components/analytics/FunnelChart'
+import AttributionTable from '@/components/analytics/AttributionTable'
+import PredictionsCard from '@/components/analytics/PredictionsCard'
+import ScheduleReportModal from '@/components/analytics/ScheduleReportModal'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Wallet, Eye, Heart, PhoneCall } from 'lucide-react'
 import { subDays } from 'date-fns'
@@ -27,6 +31,11 @@ export default function AnalyticsPage() {
   const [revenueData, setRevenueData] = useState<any>([])
   const [platformsData, setPlatformsData] = useState<any>([])
   const [contentData, setContentData] = useState<any>([])
+  const [funnelData, setFunnelData] = useState<any>(null)
+  const [attributionData, setAttributionData] = useState<any>(null)
+  const [predictionsData, setPredictionsData] = useState<any>(null)
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [selectedAttributionModel, setSelectedAttributionModel] = useState('linear')
 
   useEffect(() => {
     loadAnalyticsData()
@@ -49,10 +58,22 @@ export default function AnalyticsPage() {
       })
       platforms.forEach(p => params.append('platforms', p))
 
-      const [overviewRes, revenueRes, platformsRes] = await Promise.all([
+      const [
+        overviewRes,
+        revenueRes,
+        platformsRes,
+        contentRes,
+        funnelRes,
+        attributionRes,
+        predictionsRes
+      ] = await Promise.all([
         fetch('/api/analytics/overview?' + params),
         fetch('/api/analytics/revenue-chart?' + params),
         fetch('/api/analytics/platform-breakdown?' + params),
+        fetch('/api/analytics/top-content?' + params),
+        fetch('/api/analytics/funnel?' + params),
+        fetch('/api/analytics/attribution?' + params),
+        fetch('/api/analytics/predictions'),
       ])
 
       if (overviewRes.ok) {
@@ -70,34 +91,26 @@ export default function AnalyticsPage() {
         setPlatformsData(data)
       }
 
-      setContentData([
-        {
-          id: '1',
-          title: 'Comment j\'ai doublé mon CA en 3 mois',
-          platform: 'youtube',
-          publishedAt: new Date().toISOString(),
-          views: 15420,
-          engagement: 2340,
-          engagementRate: 15.2,
-          calls: 23,
-          revenue: 3450,
-          roi: 145,
-          url: 'https://youtube.com/example',
-        },
-        {
-          id: '2',
-          title: 'Les 5 secrets pour réussir sur LinkedIn',
-          platform: 'linkedin',
-          publishedAt: subDays(new Date(), 5).toISOString(),
-          views: 8920,
-          engagement: 1240,
-          engagementRate: 13.9,
-          calls: 18,
-          revenue: 2780,
-          roi: 132,
-          url: 'https://linkedin.com/example',
-        },
-      ])
+      if (contentRes.ok) {
+        const data = await contentRes.json()
+        setContentData(data)
+      }
+
+      if (funnelRes.ok) {
+        const data = await funnelRes.json()
+        setFunnelData(data)
+      }
+
+      if (attributionRes.ok) {
+        const data = await attributionRes.json()
+        setAttributionData(data)
+        setSelectedAttributionModel(data.selectedModel || 'linear')
+      }
+
+      if (predictionsRes.ok) {
+        const data = await predictionsRes.json()
+        setPredictionsData(data)
+      }
 
     } catch (error) {
       console.error('Error loading analytics:', error)
@@ -116,7 +129,31 @@ export default function AnalyticsPage() {
   }
 
   const handleScheduleReport = () => {
-    toast.info('Programmation de rapport en cours de développement')
+    setScheduleModalOpen(true)
+  }
+
+  const handleSaveSchedule = async (config: any) => {
+    try {
+      const response = await fetch('/api/analytics/schedule-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Erreur')
+      }
+
+      toast.success('Rapport programmé avec succès')
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de la programmation')
+      throw error
+    }
+  }
+
+  const handleAttributionModelChange = (model: string) => {
+    setSelectedAttributionModel(model)
   }
 
   if (isLoading) {
@@ -226,7 +263,45 @@ export default function AnalyticsPage() {
         {contentData.length > 0 && (
           <TopContentTable data={contentData} />
         )}
+
+        {/* Funnel Analysis */}
+        {funnelData && (
+          <FunnelChart
+            steps={funnelData.steps}
+            previousSteps={funnelData.previousSteps}
+          />
+        )}
+
+        {/* Attribution Model & Predictions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {attributionData && (
+            <AttributionTable
+              data={attributionData.sources}
+              selectedModel={selectedAttributionModel}
+              onModelChange={handleAttributionModelChange}
+            />
+          )}
+
+          {predictionsData && (
+            <PredictionsCard
+              projectedRevenue={predictionsData.projectedRevenue}
+              monthlyGoal={predictionsData.monthlyGoal}
+              confidence={predictionsData.confidence}
+              probability={predictionsData.probability}
+              recommendations={predictionsData.recommendations}
+              historicalData={predictionsData.historicalData}
+              projectionData={predictionsData.projectionData}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Schedule Report Modal */}
+      <ScheduleReportModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSchedule={handleSaveSchedule}
+      />
     </DashboardLayout>
   )
 }
