@@ -47,7 +47,7 @@ function GenericReport({ data }: { data: any }) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Résultats de l'exécution</CardTitle>
+          <CardTitle>Résultats de l&apos;exécution</CardTitle>
         </CardHeader>
         <CardContent>
           <pre className="bg-gray-50 p-4 rounded-lg overflow-auto text-xs">

@@ -301,8 +301,8 @@ export default function ConfigurationModal({
         <div className="space-y-6 py-4">
           {/* Frequency Configuration */}
           <div className="space-y-2">
-            <Label>Fréquence d'exécution *</Label>
-            <RadioGroup value={frequency} onValueChange={setFrequency}>
+            <Label>Fréquence d&apos;exécution *</Label>
+            <RadioGroup value={frequency} onValueChange={(value) => setFrequency(value as any)}>
               {workflow.allowedFrequencies.includes('daily') && (
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="daily" id="freq-daily" />
@@ -335,7 +335,7 @@ export default function ConfigurationModal({
                   onCheckedChange={(checked) => setEmailNotifications(!!checked)}
                 />
                 <label htmlFor="email-notif" className="text-sm">
-                  M'envoyer un email après chaque exécution
+                  M&apos;envoyer un email après chaque exécution
                 </label>
               </div>
               <div className="flex items-center space-x-2">
@@ -345,7 +345,7 @@ export default function ConfigurationModal({
                   onCheckedChange={(checked) => setInAppNotifications(!!checked)}
                 />
                 <label htmlFor="app-notif" className="text-sm">
-                  M'envoyer une notification in-app
+                  M&apos;envoyer une notification in-app
                 </label>
               </div>
             </div>

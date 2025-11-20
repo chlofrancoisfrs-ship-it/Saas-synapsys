@@ -36,7 +36,7 @@ export default function WorkflowCard({
   onExecute,
   onViewReport,
 }: WorkflowCardProps) {
-  const [isTogglingworkflow, setIsToggling] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
   const Icon = workflow.icon
 
   const canAccess = !workflow.isPremiumOnly || userPlan === 'premium'
