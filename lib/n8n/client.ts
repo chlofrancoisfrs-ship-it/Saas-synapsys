@@ -1,123 +1,171 @@
-// N8N Client - Configuration pour interagir avec l'API N8N
+import { WorkflowType } from '@/lib/workflows/workflows'
 
-interface N8NConfig {
-  apiUrl: string
-  apiKey: string
+const N8N_API_URL = process.env.N8N_API_URL || ''
+const N8N_API_KEY = process.env.N8N_API_KEY || ''
+const SYNAPSYS_WEBHOOK_SECRET = process.env.SYNAPSYS_WEBHOOK_SECRET || ''
+
+export interface N8NWorkflowActivation {
+  user_id: string
+  workflow_type: WorkflowType
+  config: Record<string, any>
+  frequency: string
 }
 
-class N8NClient {
-  private config: N8NConfig
+export interface N8NWorkflowExecution {
+  user_id: string
+  workflow_type: WorkflowType
+  trigger: 'manual' | 'scheduled'
+}
+
+export class N8NClient {
+  private baseUrl: string
+  private apiKey: string
 
   constructor() {
-    this.config = {
-      apiUrl: process.env.N8N_API_URL || '',
-      apiKey: process.env.N8N_API_KEY || '',
-    }
+    this.baseUrl = N8N_API_URL
+    this.apiKey = N8N_API_KEY
   }
 
-  async createWorkflow(userId: string, workflowData: any) {
+  private async request(endpoint: string, options: RequestInit = {}) {
+    const url = `${this.baseUrl}${endpoint}`
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`N8N API error: ${response.status} - ${errorText}`)
+    }
+
+    return response.json()
+  }
+
+  async activateWorkflow(data: N8NWorkflowActivation): Promise<{ success: boolean; n8n_workflow_id?: string }> {
     try {
-      const response = await fetch(`${this.config.apiUrl}/workflows`, {
+      const result = await this.request(`/webhook/synapsys/${data.workflow_type}/activate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-N8N-API-KEY': this.config.apiKey,
-        },
         body: JSON.stringify({
-          ...workflowData,
-          userId,
+          user_id: data.user_id,
+          config: data.config,
+          frequency: data.frequency,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to create workflow')
+      return {
+        success: true,
+        n8n_workflow_id: result.workflow_id,
       }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error creating N8N workflow:', error)
-      throw error
-    }
-  }
-
-  async getWorkflow(workflowId: string) {
-    try {
-      const response = await fetch(`${this.config.apiUrl}/workflows/${workflowId}`, {
-        headers: {
-          'X-N8N-API-KEY': this.config.apiKey,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to get workflow')
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error getting N8N workflow:', error)
-      throw error
-    }
-  }
-
-  async activateWorkflow(workflowId: string) {
-    try {
-      const response = await fetch(`${this.config.apiUrl}/workflows/${workflowId}/activate`, {
-        method: 'POST',
-        headers: {
-          'X-N8N-API-KEY': this.config.apiKey,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to activate workflow')
-      }
-
-      return await response.json()
     } catch (error) {
       console.error('Error activating N8N workflow:', error)
-      throw error
+      return { success: false }
     }
   }
 
-  async deactivateWorkflow(workflowId: string) {
+  async deactivateWorkflow(userId: string, workflowType: WorkflowType): Promise<{ success: boolean }> {
     try {
-      const response = await fetch(`${this.config.apiUrl}/workflows/${workflowId}/deactivate`, {
+      await this.request(`/webhook/synapsys/${workflowType}/deactivate`, {
         method: 'POST',
-        headers: {
-          'X-N8N-API-KEY': this.config.apiKey,
-        },
+        body: JSON.stringify({
+          user_id: userId,
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to deactivate workflow')
-      }
-
-      return await response.json()
+      return { success: true }
     } catch (error) {
       console.error('Error deactivating N8N workflow:', error)
-      throw error
+      return { success: false }
     }
   }
 
-  async deleteWorkflow(workflowId: string) {
+  async updateWorkflowConfig(
+    userId: string,
+    workflowType: WorkflowType,
+    config: Record<string, any>
+  ): Promise<{ success: boolean }> {
     try {
-      const response = await fetch(`${this.config.apiUrl}/workflows/${workflowId}`, {
-        method: 'DELETE',
-        headers: {
-          'X-N8N-API-KEY': this.config.apiKey,
-        },
+      await this.request(`/webhook/synapsys/${workflowType}/update`, {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: userId,
+          config,
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to delete workflow')
-      }
-
-      return true
+      return { success: true }
     } catch (error) {
-      console.error('Error deleting N8N workflow:', error)
-      throw error
+      console.error('Error updating N8N workflow config:', error)
+      return { success: false }
+    }
+  }
+
+  async executeWorkflow(data: N8NWorkflowExecution): Promise<{ success: boolean; execution_id?: string }> {
+    try {
+      const result = await this.request(`/webhook/synapsys/${data.workflow_type}/execute`, {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: data.user_id,
+          trigger: data.trigger,
+        }),
+      })
+
+      return {
+        success: true,
+        execution_id: result.execution_id,
+      }
+    } catch (error) {
+      console.error('Error executing N8N workflow:', error)
+      return { success: false }
+    }
+  }
+
+  async getWorkflowStatus(userId: string, workflowType: WorkflowType): Promise<{
+    success: boolean
+    is_active?: boolean
+    last_execution?: string
+    next_execution?: string
+  }> {
+    try {
+      const result = await this.request(`/webhook/synapsys/${workflowType}/status?user_id=${userId}`, {
+        method: 'GET',
+      })
+
+      return {
+        success: true,
+        is_active: result.is_active,
+        last_execution: result.last_execution,
+        next_execution: result.next_execution,
+      }
+    } catch (error) {
+      console.error('Error getting N8N workflow status:', error)
+      return { success: false }
     }
   }
 }
 
 export const n8nClient = new N8NClient()
+
+// Webhook signature verification
+export function verifyWebhookSignature(payload: string, signature: string): boolean {
+  const crypto = require('crypto')
+  const expectedSignature = crypto
+    .createHmac('sha256', SYNAPSYS_WEBHOOK_SECRET)
+    .update(payload)
+    .digest('hex')
+
+  return signature === expectedSignature
+}
+
+// Generate webhook signature for outgoing requests
+export function generateWebhookSignature(payload: string): string {
+  const crypto = require('crypto')
+  return crypto
+    .createHmac('sha256', SYNAPSYS_WEBHOOK_SECRET)
+    .update(payload)
+    .digest('hex')
+}
