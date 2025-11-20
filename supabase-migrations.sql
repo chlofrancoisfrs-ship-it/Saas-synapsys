@@ -52,13 +52,27 @@ CREATE TABLE IF NOT EXISTS public.integrations (
   platform TEXT CHECK (platform IN ('youtube', 'linkedin', 'instagram', 'stripe', 'calendly', 'whatsapp', 'telegram', 'phantombuster')) NOT NULL,
   access_token TEXT,
   refresh_token TEXT,
-  token_expiry TIMESTAMP WITH TIME ZONE,
+  token_expires_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
   config JSONB DEFAULT '{}'::jsonb,
   last_sync TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, platform)
+);
+
+-- =====================================================
+-- 3B. OAUTH STATES TABLE
+-- Temporary storage for OAuth state tokens (CSRF protection)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS public.oauth_states (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  state TEXT NOT NULL UNIQUE,
+  platform TEXT NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- =====================================================
@@ -278,6 +292,7 @@ CREATE INDEX IF NOT EXISTS idx_content_patterns_creator_id ON public.content_pat
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.integrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.oauth_states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workflow_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.creator_database ENABLE ROW LEVEL SECURITY;
@@ -338,6 +353,22 @@ CREATE POLICY "Users can update own integrations" ON public.integrations
 
 DROP POLICY IF EXISTS "Users can delete own integrations" ON public.integrations;
 CREATE POLICY "Users can delete own integrations" ON public.integrations
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- =====================================================
+-- POLICIES - OAUTH STATES
+-- =====================================================
+
+DROP POLICY IF EXISTS "Users can view own oauth states" ON public.oauth_states;
+CREATE POLICY "Users can view own oauth states" ON public.oauth_states
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert own oauth states" ON public.oauth_states;
+CREATE POLICY "Users can insert own oauth states" ON public.oauth_states
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete own oauth states" ON public.oauth_states;
+CREATE POLICY "Users can delete own oauth states" ON public.oauth_states
   FOR DELETE USING (auth.uid() = user_id);
 
 -- =====================================================

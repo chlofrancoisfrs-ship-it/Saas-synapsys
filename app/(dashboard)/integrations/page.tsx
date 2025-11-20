@@ -53,11 +53,11 @@ export default function IntegrationsPage() {
         origin: { y: 0.6 }
       })
       // Clean URL
-      router.replace('/dashboard/integrations')
+      router.replace('/integrations')
     }
 
     if (error) {
-      router.replace('/dashboard/integrations')
+      router.replace('/integrations')
     }
   }, [searchParams])
 
